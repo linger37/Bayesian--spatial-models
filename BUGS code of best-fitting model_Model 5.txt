@@ -1,0 +1,51 @@
+model{
+  for(i in 1:Narea){
+    for(j in 1:Ntransit){
+      ##Likelihood
+      O[i,j] ~ dnorm(mu[i,j],prec.u[j])
+      mu[i,j] <- alpha[j] + beta[j,1]*covariates[i,1] + beta[j,2]*covariates[i,2] + beta[j,3]*covariates[i,3] + beta[j,4]*covariates[i,4] + beta[j,5]*covariates[i,5] + beta[j,6]*covariates[i,6] + beta[j,7]*covariates[i,7] + s[j,i]
+      ##Non-spatial random effects
+      u[i,j] <- O[i,j] - mu[i,j]
+      ##Replicate O's using the fitted model
+      O.pred[i,j] ~ dnorm(mu[i,j],prec.u[j])
+      ppp[i,j] <- step(O.pred[i,j]-O[i,j])
+    }
+  }
+  
+  ##Spatial random effects
+  s[1:Ntransit,1:Narea] ~ mv.car(adj[],weights[],num[],prec.s[,])
+  
+  ##Precision matrix
+  prec.s[1:Ntransit,1:Ntransit] ~ dwish(R.s[,],Ntransit)
+  ##Variance-covariance matrix
+  var.s[1:Ntransit,1:Ntransit] <- inverse(prec.s[1:Ntransit,1:Ntransit])
+  ##Calculate the standard deviation
+  for(k in 1:Ntransit){
+    sigma.s[k] <- sqrt(var.s[k,k])
+  }
+  
+  ##Calculate the cross-disease correlation
+  for(k in 1:Ntransit){
+    for(m in 1:Ntransit){
+      corr.s[k,m] <- var.s[k,m]/(sigma.s[k]*sigma.s[m])
+    }
+  }
+  
+  ##Prior specification
+  for(j in 1:Ntransit){
+    ##s.d. of non-spatial random effects
+    sd.u[j] ~ dunif(0,100)
+    prec.u[j] <- pow(sd.u[j],-2)
+    
+    ##Intercept
+    alpha[j] ~ dflat()
+    ##Regression coefficients
+    for(k in 1:Nbeta){
+      beta[j,k] ~ dnorm(0,0.0001)   
+    }
+  }
+  
+  for(k in 1:sumNumNeigh){
+    weights[k] <- 1
+  }
+}
